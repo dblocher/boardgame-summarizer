@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Board Game Summarizer - Multi-model Bedrock comparison service
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        BEDROCK_MODELS: "us.anthropic.claude-3-5-sonnet-20241022-v2:0,anthropic.claude-3-haiku-20240307-v1:0"
+
+Resources:
+  BoardGameSummarizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambda/
+      Handler: handler.lambda_handler
+      Description: Processes board game HTML and generates summaries using multiple Bedrock models
+      Policies:
+        - Statement:
+          - Sid: BedrockInvokePolicy
+            Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+            Resource:
+              - 'arn:aws:bedrock:*::foundation-model/anthropic.claude-*'
+              - !Sub 'arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*'
+      Events:
+        SummarizeAPI:
+          Type: Api
+          Properties:
+            Path: /summarize
+            Method: POST
+            RestApiId: !Ref BoardGameAPI
+
+  BoardGameAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'POST, OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      DefinitionBody:
+        openapi: 3.0.1
+        info:
+          title: Board Game Summarizer API
+          version: 1.0.0
+        paths:
+          /summarize:
+            post:
+              summary: Summarize board game from HTML
+              requestBody:
+                required: true
+                content:
+                  text/html:
+                    schema:
+                      type: string
+              responses:
+                '200':
+                  description: Successful summary generation
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                '400':
+                  description: Bad request
+                '500':
+                  description: Internal server error
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BoardGameSummarizerFunction.Arn}/invocations'
+                payloadFormatVersion: 2.0
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL for board game summarizer"
+    Value: !Sub "https://${BoardGameAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/summarize"
+
+  FunctionArn:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt BoardGameSummarizerFunction.Arn
+
+  FunctionIamRole:
+    Description: "IAM Role created for Lambda function"
+    Value: !GetAtt BoardGameSummarizerFunctionRole.Arn
