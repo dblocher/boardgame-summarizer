@@ -12,6 +12,10 @@ import sys
 import requests
 from urllib.parse import urlparse
 from typing import Dict, Any
+from colorama import init, Fore, Back, Style
+
+# Initialize colorama for cross-platform color support
+init(autoreset=True)
 
 
 class BoardGameClient:
@@ -38,17 +42,17 @@ class BoardGameClient:
         Returns:
             HTML content as string
         """
-        print(f"Fetching HTML from: {url}")
+        print(f"{Fore.CYAN}🌐 Fetching HTML from: {Style.BRIGHT}{url}")
 
         try:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
 
-            print(f"Successfully fetched {len(response.text)} characters")
+            print(f"{Fore.GREEN}✓ Successfully fetched {Fore.YELLOW}{len(response.text):,}{Fore.GREEN} characters")
             return response.text
 
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching URL: {e}", file=sys.stderr)
+            print(f"{Fore.RED}✗ Error fetching URL: {e}", file=sys.stderr)
             sys.exit(1)
 
     def send_to_api(self, html_content: str) -> Dict[str, Any]:
@@ -61,7 +65,8 @@ class BoardGameClient:
         Returns:
             API response as dictionary
         """
-        print(f"\nSending HTML to API: {self.api_endpoint}")
+        print(f"\n{Fore.CYAN}🚀 Sending HTML to API...")
+        print(f"{Fore.BLUE}   Endpoint: {Style.DIM}{self.api_endpoint}")
 
         try:
             response = requests.post(
@@ -72,12 +77,13 @@ class BoardGameClient:
             )
             response.raise_for_status()
 
+            print(f"{Fore.GREEN}✓ API response received")
             return response.json()
 
         except requests.exceptions.RequestException as e:
-            print(f"Error calling API: {e}", file=sys.stderr)
+            print(f"{Fore.RED}✗ Error calling API: {e}", file=sys.stderr)
             if hasattr(e, 'response') and e.response is not None:
-                print(f"Response: {e.response.text}", file=sys.stderr)
+                print(f"{Fore.RED}Response: {e.response.text}", file=sys.stderr)
             sys.exit(1)
 
     def display_results(self, results: Dict[str, Any]):
@@ -87,35 +93,38 @@ class BoardGameClient:
         Args:
             results: API response containing model comparisons
         """
-        print("\n" + "=" * 80)
-        print("BOARD GAME SUMMARIZER - MODEL COMPARISON RESULTS")
-        print("=" * 80)
+        print("\n" + Style.BRIGHT + Fore.CYAN + "═" * 80)
+        print(f"{Style.BRIGHT}{Fore.WHITE}🎲 BOARD GAME SUMMARIZER - MODEL COMPARISON RESULTS")
+        print(Style.BRIGHT + Fore.CYAN + "═" * 80 + Style.RESET_ALL)
 
-        print(f"\nText extracted: {results.get('text_length', 0)} characters")
-        print(f"Models compared: {results.get('models_compared', 0)}")
+        print(f"\n{Fore.BLUE}📊 Text extracted: {Fore.YELLOW}{results.get('text_length', 0):,}{Fore.BLUE} characters")
+        print(f"{Fore.BLUE}🤖 Models compared: {Fore.YELLOW}{results.get('models_compared', 0)}")
 
         model_results = results.get('results', [])
 
         for i, result in enumerate(model_results, 1):
-            print("\n" + "-" * 80)
-            print(f"MODEL {i}: {result['model_id']}")
-            print("-" * 80)
+            print(f"\n{Style.BRIGHT}{Fore.MAGENTA}{'─' * 80}")
+            print(f"{Style.BRIGHT}{Fore.MAGENTA}🔮 MODEL {i}: {Fore.WHITE}{result['model_id']}")
+            print(f"{Style.BRIGHT}{Fore.MAGENTA}{'─' * 80}{Style.RESET_ALL}")
 
             if result.get('success'):
-                print(f"\nSummary:")
-                print(result['summary'])
+                print(f"\n{Style.BRIGHT}{Fore.GREEN}📝 Summary:{Style.RESET_ALL}")
+                # Wrap the summary text with slight indentation
+                summary_lines = result['summary'].split('\n')
+                for line in summary_lines:
+                    print(f"{Fore.WHITE}   {line}")
 
                 metrics = result.get('metrics', {})
-                print(f"\nMetrics:")
-                print(f"  - Latency: {metrics.get('latency_seconds', 0)} seconds")
-                print(f"  - Input tokens: {metrics.get('input_tokens', 0)}")
-                print(f"  - Output tokens: {metrics.get('output_tokens', 0)}")
-                print(f"  - Output length: {metrics.get('output_length', 0)} characters")
+                print(f"\n{Style.BRIGHT}{Fore.CYAN}⚡ Performance Metrics:{Style.RESET_ALL}")
+                print(f"{Fore.BLUE}   ⏱️  Latency: {Fore.YELLOW}{metrics.get('latency_seconds', 0):.2f}s")
+                print(f"{Fore.BLUE}   📥 Input tokens: {Fore.YELLOW}{metrics.get('input_tokens', 0):,}")
+                print(f"{Fore.BLUE}   📤 Output tokens: {Fore.YELLOW}{metrics.get('output_tokens', 0):,}")
+                print(f"{Fore.BLUE}   📏 Output length: {Fore.YELLOW}{metrics.get('output_length', 0):,} {Fore.BLUE}characters")
             else:
-                print(f"\n❌ ERROR: {result.get('error', 'Unknown error')}")
-                print(f"Latency: {result.get('metrics', {}).get('latency_seconds', 0)} seconds")
+                print(f"\n{Fore.RED}❌ ERROR: {result.get('error', 'Unknown error')}")
+                print(f"{Fore.YELLOW}⏱️  Latency: {result.get('metrics', {}).get('latency_seconds', 0):.2f}s")
 
-        print("\n" + "=" * 80)
+        print("\n" + Style.BRIGHT + Fore.CYAN + "═" * 80 + Style.RESET_ALL + "\n")
 
     def process_boardgame(self, url: str):
         """
@@ -127,7 +136,7 @@ class BoardGameClient:
         # Validate URL
         parsed = urlparse(url)
         if 'boardgamegeek.com' not in parsed.netloc:
-            print("Warning: URL doesn't appear to be from BoardGameGeek", file=sys.stderr)
+            print(f"{Fore.YELLOW}⚠️  Warning: URL doesn't appear to be from BoardGameGeek", file=sys.stderr)
 
         # Fetch HTML
         html_content = self.fetch_boardgame_html(url)
