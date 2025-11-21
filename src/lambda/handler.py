@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 import boto3
 from bs4 import BeautifulSoup
@@ -39,7 +40,6 @@ def extract_text_from_html(html_content):
                     json_str = script_text[start:start+50000]  # Get a large chunk
                     try:
                         # Try to parse it as JSON
-                        import re
                         # Find where the object likely ends
                         match = re.search(r'\};[\s\n]*GEEK\.', json_str)
                         if match:
